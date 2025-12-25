@@ -1,103 +1,299 @@
-import Image from "next/image";
+/**
+ * Home Services Booking System - Main Page
+ * 
+ * This is the landing page where customers can:
+ * 1. Select a service (Roofing, Plumbing, HVAC, etc.)
+ * 2. Fill out their information (name, email, phone, address)
+ * 3. Provide budget and notes
+ * 4. Submit booking request
+ * 
+ * The page uses shadcn/ui components for a professional, accessible interface.
+ */
 
-export default function Home() {
+'use client'
+
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { toast } from 'sonner'
+import { Wrench, Home, Zap, Droplet } from 'lucide-react'
+
+// Service options available for booking
+const SERVICES = [
+  { id: 'roofing', name: 'Roofing', icon: Home, description: 'Roof repair and installation' },
+  { id: 'plumbing', name: 'Plumbing', icon: Droplet, description: 'Plumbing repairs and installation' },
+  { id: 'hvac', name: 'HVAC', icon: Zap, description: 'Heating and cooling systems' },
+  { id: 'general', name: 'General Maintenance', icon: Wrench, description: 'General home maintenance' },
+]
+
+export default function BookingPage() {
+  // Form state management
+  const [selectedService, setSelectedService] = useState<string>('')
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    budget: '',
+    notes: '',
+  })
+  const [isLoading, setIsLoading] = useState(false)
+
+  /**
+   * Handle form input changes
+   * Updates the formData state as user types
+   */
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  /**
+   * Handle form submission
+   * Validates input, sends booking request to API, and shows confirmation
+   */
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validation: ensure all required fields are filled
+    if (!selectedService || !formData.name || !formData.email || !formData.phone || !formData.address) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      // Send booking request to API
+      const response = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId: selectedService,
+          customerName: formData.name,
+          customerEmail: formData.email,
+          customerPhone: formData.phone,
+          customerAddress: formData.address,
+          budget: formData.budget ? parseFloat(formData.budget) : null,
+          notes: formData.notes,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create booking')
+      }
+
+      const booking = await response.json()
+
+      // Show success message and redirect to payment
+      toast.success('Booking created! Redirecting to payment...')
+      
+      // Redirect to payment page
+      setTimeout(() => {
+        window.location.href = `/payment?bookingId=${booking.id}`
+      }, 1500)
+    } catch (error) {
+      console.error('Booking error:', error)
+      toast.error('Failed to create booking. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Header Section */}
+      <header className="border-b bg-white shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 py-6">
+          <h1 className="text-3xl font-bold text-slate-900">Home Services Booking</h1>
+          <p className="text-slate-600 mt-2">Book professional home services in minutes</p>
+        </div>
+      </header>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {/* Main Content */}
+      <main className="max-w-6xl mx-auto px-4 py-12">
+        <div className="grid md:grid-cols-3 gap-8">
+          {/* Service Selection Column */}
+          <div className="md:col-span-1">
+            <h2 className="text-xl font-semibold text-slate-900 mb-4">Select a Service</h2>
+            <div className="space-y-3">
+              {SERVICES.map(service => {
+                const Icon = service.icon
+                return (
+                  <button
+                    key={service.id}
+                    onClick={() => setSelectedService(service.id)}
+                    className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                      selectedService === service.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className="w-5 h-5 text-slate-600" />
+                      <div>
+                        <p className="font-medium text-slate-900">{service.name}</p>
+                        <p className="text-sm text-slate-500">{service.description}</p>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Booking Form Column */}
+          <div className="md:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Booking Details</CardTitle>
+                <CardDescription>
+                  {selectedService
+                    ? `Booking for ${SERVICES.find(s => s.id === selectedService)?.name}`
+                    : 'Select a service to get started'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Name Field */}
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name *</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      placeholder="John Doe"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+
+                  {/* Email Field */}
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address *</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="john@example.com"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+
+                  {/* Phone Field */}
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number *</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="(555) 123-4567"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+
+                  {/* Address Field */}
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Service Address *</Label>
+                    <Input
+                      id="address"
+                      name="address"
+                      placeholder="123 Main St, City, State 12345"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+
+                  {/* Budget Field (Optional) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="budget">Budget (Optional)</Label>
+                    <Input
+                      id="budget"
+                      name="budget"
+                      type="number"
+                      placeholder="$0.00"
+                      value={formData.budget}
+                      onChange={handleInputChange}
+                      step="0.01"
+                      min="0"
+                    />
+                  </div>
+
+                  {/* Notes Field (Optional) */}
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Additional Notes (Optional)</Label>
+                    <Textarea
+                      id="notes"
+                      name="notes"
+                      placeholder="Tell us more about your project..."
+                      value={formData.notes}
+                      onChange={handleInputChange}
+                      rows={4}
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <Button
+                    type="submit"
+                    disabled={!selectedService || isLoading}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isLoading ? 'Creating Booking...' : 'Request Booking'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Info Section */}
+        <div className="mt-12 grid md:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Quick Response</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-slate-600">
+                Our team responds to booking requests within 24 hours with availability and pricing.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Flexible Scheduling</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-slate-600">
+                Choose from available time slots that work best for your schedule.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Professional Service</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-slate-600">
+                Licensed and insured professionals ready to help with your home service needs.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
-  );
+  )
 }

@@ -1,0 +1,148 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Service model - represents different home services (Roofing, Plumbing, etc.)
+model Service {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g., "Roofing", "Plumbing", "HVAC"
+  description String?
+  duration    Int      // Duration in minutes
+  price       Decimal  @db.Decimal(10, 2) // Base price for the service
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  bookings    Booking[]
+  availability Availability[]
+
+  @@index([name])
+}
+
+// Booking model - represents a customer booking
+model Booking {
+  id              String   @id @default(cuid())
+  serviceId       String
+  service         Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  // Customer information
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  customerAddress String
+  
+  // Booking details
+  scheduledDate   DateTime // When the service is scheduled
+  status          String   @default("pending") // pending, confirmed, completed, cancelled
+  notes           String?  // Additional notes from customer
+  budget          Decimal? @db.Decimal(10, 2) // Customer's budget
+  
+  // Payment information
+  totalAmount     Decimal  @db.Decimal(10, 2) @default(0) // Total booking amount
+  depositAmount   Decimal  @db.Decimal(10, 2) @default(0) // Deposit required
+  
+  // Reminders
+  emailSent       Boolean  @default(false) // 48hr email reminder
+  smsSent         Boolean  @default(false) // 1hr SMS reminder
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  completedAt     DateTime?
+
+  // Relations
+  payments        Payment[]
+
+  @@index([serviceId])
+  @@index([customerEmail])
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+// Payment model - tracks all payments for bookings
+model Payment {
+  id              String   @id @default(cuid())
+  bookingId       String
+  booking         Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  
+  // Payment details
+  amount          Decimal  @db.Decimal(10, 2) // Amount paid
+  currency        String   @default("usd") // Currency code
+  status          String   @default("pending") // pending, succeeded, failed, refunded
+  paymentType     String   @default("deposit") // deposit, full, refund
+  
+  // Stripe information
+  stripePaymentIntentId String? @unique // Stripe Payment Intent ID
+  stripeChargeId  String?  @unique // Stripe Charge ID
+  stripeCustomerId String? // Stripe Customer ID
+  
+  // Metadata
+  description     String?
+  metadata        String?  // JSON metadata
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  paidAt          DateTime?
+
+  @@index([bookingId])
+  @@index([stripePaymentIntentId])
+  @@index([status])
+}
+
+// Availability model - tracks available time slots for each service
+model Availability {
+  id        String   @id @default(cuid())
+  serviceId String
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  // Time slot information
+  dayOfWeek Int      // 0-6 (Sunday-Saturday)
+  startTime String   // HH:mm format
+  endTime   String   // HH:mm format
+  isAvailable Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([serviceId, dayOfWeek, startTime])
+  @@index([serviceId])
+}
+
+// Team member model - for notifying team/subcontractors
+model TeamMember {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  role      String   // e.g., "technician", "manager", "subcontractor"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+// Review model - for post-appointment reviews and upsells
+model Review {
+  id        String   @id @default(cuid())
+  bookingId String   @unique
+  
+  // Review details
+  rating    Int      // 1-5 stars
+  comment   String?
+  
+  // Upsell tracking
+  upsellOffered Boolean @default(false)
+  upsellAccepted Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
