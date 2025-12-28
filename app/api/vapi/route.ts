@@ -8,12 +8,16 @@ export async function POST(request: NextRequest) {
 
     if (message.type === 'tool-calls') {
       const toolCall = message.toolCalls[0]
-      const { name, args } = toolCall.function
+      const { name } = toolCall.function
+      
+      // Vapi sends arguments as a JSON string
+      const args = typeof toolCall.function.arguments === 'string' 
+        ? JSON.parse(toolCall.function.arguments) 
+        : toolCall.function.arguments
 
       if (name === 'checkAvailability') {
         const { serviceName, date } = args
         
-        // Case-insensitive search for service
         const service = await prisma.service.findFirst({
           where: { 
             name: {
@@ -45,7 +49,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (name === 'createBooking') {
-        const { serviceName, customerName, customerEmail, customerPhone, customerAddress, time, date } = args
+        const { serviceName, customerName, customerEmail, customerPhone, customerAddress } = args
 
         const service = await prisma.service.findFirst({
           where: { 
@@ -62,7 +66,6 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        // Create the booking
         const booking = await prisma.booking.create({
           data: {
             serviceId: service.id,
@@ -71,7 +74,7 @@ export async function POST(request: NextRequest) {
             customerPhone,
             customerAddress,
             status: 'pending',
-            scheduledDate: new Date(), // Ideally parse date/time here
+            scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             totalAmount: service.price,
             depositAmount: Number(service.price) * 0.5,
           }
@@ -80,7 +83,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           results: [{ 
             toolCallId: toolCall.id, 
-            result: `Success! Booking created for ${customerName} for ${service.name}. Booking ID: ${booking.id}. Please tell the customer their booking is pending and we will contact them to confirm.` 
+            result: `Success! Booking created for ${customerName} for ${service.name}. Booking ID: ${booking.id}.` 
           }]
         })
       }
