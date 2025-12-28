@@ -1,12 +1,3 @@
-/**
- * Vapi AI Integration Endpoint
- * 
- * This endpoint handles tool calls from your Vapi voice assistant.
- * It allows the AI to:
- * 1. Check available time slots for a service
- * 2. Create a booking directly from a phone call
- */
-
 import { prisma } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -15,29 +6,29 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { message } = body
 
-    // Vapi sends a "tool_calls" message when the AI wants to use a function
     if (message.type === 'tool-calls') {
       const toolCall = message.toolCalls[0]
       const { name, args } = toolCall.function
 
-      // Handle "checkAvailability" function
       if (name === 'checkAvailability') {
         const { serviceName, date } = args
         
-        // Find the service
-        const service = await prisma.service.findUnique({
-          where: { name: serviceName }
+        // Case-insensitive search for service
+        const service = await prisma.service.findFirst({
+          where: { 
+            name: {
+              equals: serviceName,
+              mode: 'insensitive'
+            }
+          }
         })
 
         if (!service) {
           return NextResponse.json({
-            results: [{ toolCallId: toolCall.id, result: "Service not found." }]
+            results: [{ toolCallId: toolCall.id, result: `Service "${serviceName}" not found. Available services are: Roofing, Plumbing, HVAC, General Maintenance.` }]
           })
         }
 
-        // Get availability for that service
-        // For simplicity, we'll just return a few slots. 
-        // In a real app, you'd check the database for existing bookings.
         const slots = [
           { time: "09:00 AM", available: true },
           { time: "11:00 AM", available: true },
@@ -48,26 +39,30 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           results: [{ 
             toolCallId: toolCall.id, 
-            result: `Available slots for ${serviceName} on ${date}: ${slots.map(s => s.time).join(', ')}` 
+            result: `Available slots for ${service.name} on ${date}: ${slots.map(s => s.time).join(', ')}` 
           }]
         })
       }
 
-      // Handle "createBooking" function
       if (name === 'createBooking') {
-        const { serviceName, customerName, customerEmail, customerPhone, customerAddress, time } = args
+        const { serviceName, customerName, customerEmail, customerPhone, customerAddress, time, date } = args
 
-        const service = await prisma.service.findUnique({
-          where: { name: serviceName }
+        const service = await prisma.service.findFirst({
+          where: { 
+            name: {
+              equals: serviceName,
+              mode: 'insensitive'
+            }
+          }
         })
 
         if (!service) {
           return NextResponse.json({
-            results: [{ toolCallId: toolCall.id, result: "Error: Service not found." }]
+            results: [{ toolCallId: toolCall.id, result: `Error: Service "${serviceName}" not found.` }]
           })
         }
 
-        // Create the booking in the database
+        // Create the booking
         const booking = await prisma.booking.create({
           data: {
             serviceId: service.id,
@@ -76,14 +71,16 @@ export async function POST(request: NextRequest) {
             customerPhone,
             customerAddress,
             status: 'pending',
-            scheduledDate: new Date(), // In a real app, parse the 'time' and 'date' args
+            scheduledDate: new Date(), // Ideally parse date/time here
+            totalAmount: service.price,
+            depositAmount: Number(service.price) * 0.5,
           }
         })
 
         return NextResponse.json({
           results: [{ 
             toolCallId: toolCall.id, 
-            result: `Success! Booking created for ${customerName}. Booking ID: ${booking.id}.` 
+            result: `Success! Booking created for ${customerName} for ${service.name}. Booking ID: ${booking.id}. Please tell the customer their booking is pending and we will contact them to confirm.` 
           }]
         })
       }
