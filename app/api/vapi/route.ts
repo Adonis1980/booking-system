@@ -4,16 +4,24 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log('Vapi Request Body:', JSON.stringify(body, null, 2))
+    
     const { message } = body
 
-    if (message.type === 'tool-calls') {
+    if (message && message.type === 'tool-calls') {
       const toolCall = message.toolCalls[0]
       const { name } = toolCall.function
       
-      // Vapi sends arguments as a JSON string
-      const args = typeof toolCall.function.arguments === 'string' 
-        ? JSON.parse(toolCall.function.arguments) 
-        : toolCall.function.arguments
+      let args = toolCall.function.arguments
+      if (typeof args === 'string') {
+        try {
+          args = JSON.parse(args)
+        } catch (e) {
+          console.error('Failed to parse arguments:', args)
+        }
+      }
+
+      console.log('Tool Call:', name, 'Args:', args)
 
       if (name === 'checkAvailability') {
         const { serviceName, date } = args
@@ -29,21 +37,14 @@ export async function POST(request: NextRequest) {
 
         if (!service) {
           return NextResponse.json({
-            results: [{ toolCallId: toolCall.id, result: `Service "${serviceName}" not found. Available services are: Roofing, Plumbing, HVAC, General Maintenance.` }]
+            results: [{ toolCallId: toolCall.id, result: `Service "${serviceName}" not found.` }]
           })
         }
-
-        const slots = [
-          { time: "09:00 AM", available: true },
-          { time: "11:00 AM", available: true },
-          { time: "02:00 PM", available: true },
-          { time: "04:00 PM", available: true }
-        ]
 
         return NextResponse.json({
           results: [{ 
             toolCallId: toolCall.id, 
-            result: `Available slots for ${service.name} on ${date}: ${slots.map(s => s.time).join(', ')}` 
+            result: `Available slots for ${service.name} on ${date}: 09:00 AM, 11:00 AM, 02:00 PM, 04:00 PM` 
           }]
         })
       }
@@ -83,15 +84,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           results: [{ 
             toolCallId: toolCall.id, 
-            result: `Success! Booking created for ${customerName} for ${service.name}. Booking ID: ${booking.id}.` 
+            result: `Success! Booking created for ${customerName}. Booking ID: ${booking.id}.` 
           }]
         })
       }
     }
 
     return NextResponse.json({ message: "OK" })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Vapi integration error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
   }
 }
