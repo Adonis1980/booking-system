@@ -57,7 +57,8 @@ function PaymentContent() {
         const data = await response.json()
         setBooking(data)
         
-        setDepositAmount(data.service.price * 0.5)
+        // Calculate deposit (50% of service price)
+        setDepositAmount(Number(data.service.price) * 0.5)
       } catch (error) {
         console.error('Error fetching booking:', error)
         toast.error('Failed to load booking details')
@@ -70,6 +71,7 @@ function PaymentContent() {
   }, [bookingId])
 
   const handlePaymentSuccess = () => {
+    // Redirect to confirmation page
     setTimeout(() => {
       window.location.href = `/confirmation?bookingId=${bookingId}`
     }, 2000)
@@ -77,10 +79,8 @@ function PaymentContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
-        <div className="max-w-2xl mx-auto">
-          <p className="text-slate-600 text-center">Loading booking details...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 flex items-center justify-center">
+        <p className="text-slate-600">Loading booking details...</p>
       </div>
     )
   }
@@ -104,7 +104,7 @@ function PaymentContent() {
     )
   }
 
-  const paymentAmount = paymentType === 'deposit' ? depositAmount : booking.service.price
+  const paymentAmount = paymentType === 'deposit' ? depositAmount : Number(booking.service.price)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -152,7 +152,7 @@ function PaymentContent() {
                 <div className="border-t pt-4">
                   <p className="text-sm text-slate-600">Service Price</p>
                   <p className="text-2xl font-bold text-slate-900">
-                    ${booking.service.price.toFixed(2)}
+                    ${Number(booking.service.price).toFixed(2)}
                   </p>
                 </div>
                 {booking.notes && (
@@ -181,7 +181,7 @@ function PaymentContent() {
                   <div>
                     <p className="font-medium text-slate-900">Deposit Payment</p>
                     <p className="text-sm text-slate-600">
-                      Pay 50% now (${depositAmount.toFixed(2)}) - Balance due at service
+                      Pay 50% now (${depositAmount.toFixed(2)}) — Balance due at service
                     </p>
                   </div>
                 </label>
@@ -198,7 +198,7 @@ function PaymentContent() {
                   <div>
                     <p className="font-medium text-slate-900">Full Payment</p>
                     <p className="text-sm text-slate-600">
-                      Pay in full now (${booking.service.price.toFixed(2)})
+                      Pay in full now (${Number(booking.service.price).toFixed(2)})
                     </p>
                   </div>
                 </label>

@@ -21,8 +21,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 
-// Initialize Stripe
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
+// Initialize Stripe outside of component to avoid re-initialization
+const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
+const stripePromise = stripeKey ? loadStripe(stripeKey) : null
 
 interface PaymentFormProps {
   bookingId: string
@@ -49,7 +50,7 @@ function PaymentFormContent({ bookingId, amount, paymentType, onSuccess }: Payme
     e.preventDefault()
 
     if (!stripe || !elements) {
-      toast.error('Stripe not loaded')
+      toast.error('Stripe is not properly loaded. Please check your configuration.')
       return
     }
 
@@ -73,7 +74,8 @@ function PaymentFormContent({ bookingId, amount, paymentType, onSuccess }: Payme
       })
 
       if (!paymentResponse.ok) {
-        throw new Error('Failed to create payment intent')
+        const errorData = await paymentResponse.json()
+        throw new Error(errorData.error || 'Failed to create payment intent')
       }
 
       const { clientSecret, paymentId } = await paymentResponse.json()
@@ -108,7 +110,7 @@ function PaymentFormContent({ bookingId, amount, paymentType, onSuccess }: Payme
         })
 
         if (!confirmResponse.ok) {
-          throw new Error('Failed to confirm payment')
+          throw new Error('Failed to confirm payment on our server')
         }
 
         toast.success('Payment successful! Your booking is confirmed.')
@@ -122,17 +124,31 @@ function PaymentFormContent({ bookingId, amount, paymentType, onSuccess }: Payme
     }
   }
 
+  if (!stripeKey) {
+    return (
+      <Card className="border-destructive">
+        <CardHeader>
+          <CardTitle className="text-destructive">Stripe Configuration Missing</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            The Stripe Publishable Key is missing. Please add <code>NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> to your environment variables.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
-    <Card>
+    <Card className="shadow-lg">
       <CardHeader>
         <CardTitle>Payment Details</CardTitle>
         <CardDescription>
-          {paymentType === 'deposit' ? 'Deposit Payment' : 'Full Payment'} - ${amount.toFixed(2)}
+          {paymentType === 'deposit' ? 'Deposit Payment' : 'Full Payment'} — ${amount.toFixed(2)}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Email Field */}
           <div className="space-y-2">
             <Label htmlFor="email">Email Address</Label>
             <Input
@@ -145,7 +161,6 @@ function PaymentFormContent({ bookingId, amount, paymentType, onSuccess }: Payme
             />
           </div>
 
-          {/* Card Element */}
           <div className="space-y-2">
             <Label>Card Details</Label>
             <div className="border rounded-lg p-3 bg-white">
@@ -168,7 +183,6 @@ function PaymentFormContent({ bookingId, amount, paymentType, onSuccess }: Payme
             </div>
           </div>
 
-          {/* Amount Display */}
           <div className="bg-slate-50 p-4 rounded-lg">
             <div className="flex justify-between items-center">
               <span className="text-slate-600">Amount to Pay:</span>
@@ -178,7 +192,6 @@ function PaymentFormContent({ bookingId, amount, paymentType, onSuccess }: Payme
             </div>
           </div>
 
-          {/* Submit Button */}
           <Button
             type="submit"
             disabled={!stripe || isLoading}
@@ -188,7 +201,6 @@ function PaymentFormContent({ bookingId, amount, paymentType, onSuccess }: Payme
             {isLoading ? 'Processing...' : `Pay $${amount.toFixed(2)}`}
           </Button>
 
-          {/* Security Notice */}
           <p className="text-xs text-slate-500 text-center">
             🔒 Your payment is secure and encrypted by Stripe
           </p>
@@ -203,6 +215,10 @@ function PaymentFormContent({ bookingId, amount, paymentType, onSuccess }: Payme
  * Provides Stripe Elements context
  */
 export function PaymentForm(props: PaymentFormProps) {
+  if (!stripePromise) {
+    return <PaymentFormContent {...props} />
+  }
+
   return (
     <Elements stripe={stripePromise}>
       <PaymentFormContent {...props} />
