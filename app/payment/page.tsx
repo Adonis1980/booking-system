@@ -8,9 +8,9 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PaymentForm } from '@/components/payments/PaymentForm'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
@@ -32,7 +32,7 @@ interface BookingDetails {
   }
 }
 
-export default function PaymentPage() {
+function PaymentContent() {
   const searchParams = useSearchParams()
   const bookingId = searchParams.get('bookingId')
   
@@ -41,9 +41,6 @@ export default function PaymentPage() {
   const [depositAmount, setDepositAmount] = useState(0)
   const [paymentType, setPaymentType] = useState<'deposit' | 'full'>('deposit')
 
-  /**
-   * Fetch booking details
-   */
   useEffect(() => {
     if (!bookingId) {
       toast.error('No booking ID provided')
@@ -60,7 +57,6 @@ export default function PaymentPage() {
         const data = await response.json()
         setBooking(data)
         
-        // Calculate deposit (50% of service price)
         setDepositAmount(data.service.price * 0.5)
       } catch (error) {
         console.error('Error fetching booking:', error)
@@ -73,11 +69,7 @@ export default function PaymentPage() {
     fetchBooking()
   }, [bookingId])
 
-  /**
-   * Handle successful payment
-   */
   const handlePaymentSuccess = () => {
-    // Redirect to confirmation page
     setTimeout(() => {
       window.location.href = `/confirmation?bookingId=${bookingId}`
     }, 2000)
@@ -103,7 +95,7 @@ export default function PaymentPage() {
             </CardHeader>
             <CardContent>
               <p className="text-slate-600">
-                The booking you're looking for doesn't exist or has been deleted.
+                The booking you&apos;re looking for doesn&apos;t exist or has been deleted.
               </p>
             </CardContent>
           </Card>
@@ -116,7 +108,6 @@ export default function PaymentPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
       <header className="border-b bg-white shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-6">
           <h1 className="text-3xl font-bold text-slate-900">Complete Your Payment</h1>
@@ -124,63 +115,46 @@ export default function PaymentPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-12">
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Booking Summary */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Booking Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Service */}
                 <div>
                   <p className="text-sm text-slate-600">Service</p>
                   <p className="text-lg font-semibold text-slate-900">{booking.service.name}</p>
                 </div>
-
-                {/* Customer Name */}
                 <div>
                   <p className="text-sm text-slate-600">Customer Name</p>
                   <p className="text-lg font-semibold text-slate-900">{booking.customerName}</p>
                 </div>
-
-                {/* Email */}
                 <div>
                   <p className="text-sm text-slate-600">Email</p>
                   <p className="text-slate-900">{booking.customerEmail}</p>
                 </div>
-
-                {/* Phone */}
                 <div>
                   <p className="text-sm text-slate-600">Phone</p>
                   <p className="text-slate-900">{booking.customerPhone}</p>
                 </div>
-
-                {/* Address */}
                 <div>
                   <p className="text-sm text-slate-600">Service Address</p>
                   <p className="text-slate-900">{booking.customerAddress}</p>
                 </div>
-
-                {/* Scheduled Date */}
                 <div>
                   <p className="text-sm text-slate-600">Scheduled Date</p>
                   <p className="text-slate-900">
                     {format(new Date(booking.scheduledDate), 'MMMM dd, yyyy h:mm a')}
                   </p>
                 </div>
-
-                {/* Service Price */}
                 <div className="border-t pt-4">
                   <p className="text-sm text-slate-600">Service Price</p>
                   <p className="text-2xl font-bold text-slate-900">
                     ${booking.service.price.toFixed(2)}
                   </p>
                 </div>
-
-                {/* Notes */}
                 {booking.notes && (
                   <div className="bg-slate-50 p-3 rounded">
                     <p className="text-sm text-slate-600 font-medium mb-1">Notes</p>
@@ -190,7 +164,6 @@ export default function PaymentPage() {
               </CardContent>
             </Card>
 
-            {/* Payment Type Selection */}
             <Card>
               <CardHeader>
                 <CardTitle>Payment Type</CardTitle>
@@ -233,7 +206,6 @@ export default function PaymentPage() {
             </Card>
           </div>
 
-          {/* Payment Form */}
           <div>
             <PaymentForm
               bookingId={booking.id}
@@ -245,5 +217,13 @@ export default function PaymentPage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function PaymentPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <PaymentContent />
+    </Suspense>
   )
 }
