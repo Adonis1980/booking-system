@@ -1,26 +1,13 @@
-/**
- * GET /api/bookings/[id]
- * 
- * Retrieves a specific booking by ID
- * 
- * Response:
- * - Returns booking details with service information
- * - Status 200 on success
- * - Status 404 if booking not found
- * - Status 500 on server error
- */
-
 import { prisma } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
 
-    // Fetch booking with service details
     const booking = await prisma.booking.findUnique({
       where: { id },
       include: {
@@ -46,25 +33,14 @@ export async function GET(
   }
 }
 
-/**
- * PATCH /api/bookings/[id]
- * 
- * Updates a booking
- * 
- * Request body:
- * - status: string (optional)
- * - notes: string (optional)
- * - scheduledDate: string (optional)
- */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
 
-    // Update booking
     const booking = await prisma.booking.update({
       where: { id },
       data: body,

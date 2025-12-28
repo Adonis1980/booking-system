@@ -1,32 +1,18 @@
-/**
- * POST /api/webhooks/stripe
- * 
- * Handles Stripe webhook events
- * Verifies webhook signature and processes payment events
- * 
- * Events handled:
- * - payment_intent.succeeded - Payment completed successfully
- * - payment_intent.payment_failed - Payment failed
- * - charge.refunded - Payment refunded
- */
-
 import { prisma } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2025-12-15.clover',
 })
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the raw body for signature verification
     const body = await request.text()
     const signature = request.headers.get('stripe-signature') || ''
 
-    // Verify webhook signature
     let event: Stripe.Event
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
@@ -38,7 +24,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Handle different event types
     switch (event.type) {
       case 'payment_intent.succeeded':
         await handlePaymentSucceeded(event.data.object as Stripe.PaymentIntent)
@@ -66,16 +51,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Handle successful payment
- * Updates payment status and booking confirmation
- */
 async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   try {
     const bookingId = paymentIntent.metadata.bookingId
     const paymentType = paymentIntent.metadata.paymentType
 
-    // Find payment by Stripe Payment Intent ID
     const payment = await prisma.payment.findUnique({
       where: { stripePaymentIntentId: paymentIntent.id },
       include: { booking: true },
@@ -86,17 +66,15 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
       return
     }
 
-    // Update payment status
     await prisma.payment.update({
       where: { id: payment.id },
       data: {
         status: 'succeeded',
-        stripeChargeId: paymentIntent.charges.data[0]?.id || null,
+        stripeChargeId: typeof paymentIntent.latest_charge === 'string' ? paymentIntent.latest_charge : null,
         paidAt: new Date(),
       },
     })
 
-    // Update booking status if full payment
     if (paymentType === 'full') {
       await prisma.booking.update({
         where: { id: bookingId },
@@ -110,15 +88,10 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   }
 }
 
-/**
- * Handle failed payment
- * Updates payment status and notifies customer
- */
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
   try {
     const bookingId = paymentIntent.metadata.bookingId
 
-    // Find payment by Stripe Payment Intent ID
     const payment = await prisma.payment.findUnique({
       where: { stripePaymentIntentId: paymentIntent.id },
     })
@@ -128,7 +101,6 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
       return
     }
 
-    // Update payment status
     await prisma.payment.update({
       where: { id: payment.id },
       data: {
@@ -142,13 +114,8 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
   }
 }
 
-/**
- * Handle refunded charge
- * Updates payment status to refunded
- */
 async function handleChargeRefunded(charge: Stripe.Charge) {
   try {
-    // Find payment by Stripe Charge ID
     const payment = await prisma.payment.findUnique({
       where: { stripeChargeId: charge.id },
     })
@@ -158,7 +125,6 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
       return
     }
 
-    // Update payment status
     await prisma.payment.update({
       where: { id: payment.id },
       data: {
